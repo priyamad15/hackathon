@@ -1,0 +1,51 @@
+country,company,symbol
+Germany,SAP,SAP.DE
+Germany,Siemens,SIE.DE
+Germany,BMW,BMW.DE
+Germany,Mercedes-Benz,MBG.DE
+Germany,Volkswagen,VOW3.DE
+Germany,Allianz,ALV.DE
+Germany,Adidas,ADS.DE
+Germany,BASF,BAS.DE
+Germany,Deutsche Telekom,DTE.DE
+Germany,Deutsche Boerse,DB1.DE
+France,Airbus,AIR.PA
+France,LVMH,MC.PA
+France,TotalEnergies,TTE.PA
+France,Sanofi,SAN.PA
+France,BNP Paribas,BNP.PA
+France,Schneider Electric,SU.PA
+France,L'Oreal,OR.PA
+France,Danone,BN.PA
+France,Capgemini,CAP.PA
+France,AXA,CS.PA
+United Kingdom,Shell,SHEL.L
+United Kingdom,HSBC,HSBA.L
+United Kingdom,Unilever,ULVR.L
+United Kingdom,AstraZeneca,AZN.L
+United Kingdom,BP,BP.L
+United Kingdom,Rio Tinto,RIO.L
+United Kingdom,Barclays,BARC.L
+United Kingdom,Lloyds,LLOY.L
+United Kingdom,Diageo,DGE.L
+United Kingdom,Glencore,GLEN.L
+Netherlands,ASML,ASML.AS
+Netherlands,ING,INGA.AS
+Netherlands,Philips,PHIA.AS
+Netherlands,Adyen,ADYEN.AS
+Netherlands,Heineken,HEIA.AS
+Netherlands,Prosus,PRX.AS
+Netherlands,Ahold Delhaize,AD.AS
+Netherlands,Akzo Nobel,AKZA.AS
+Netherlands,NN Group,NN.AS
+Netherlands,ASM International,ASM.AS
+Switzerland,Nestle,NESN.SW
+Switzerland,Novartis,NOVN.SW
+Switzerland,Roche,ROG.SW
+Switzerland,UBS,UBSG.SW
+Switzerland,Zurich Insurance,ZURN.SW
+Switzerland,ABB,ABBN.SW
+Switzerland,Swiss Re,SREN.SW
+Switzerland,Lonza,LONN.SW
+Switzerland,Richemont,CFR.SW
+Switzerland,Holcim,HOLN.SW
