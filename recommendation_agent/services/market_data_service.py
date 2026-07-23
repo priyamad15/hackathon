@@ -13,15 +13,11 @@ Responsibilities:
 Uses YahooService internally.
 
 ==============================================================================
-
 """
-
 
 import pandas as pd
 
-
 from services.yahoo_service import YahooService
-
 
 from config import (
     MARKET_FILE,
@@ -29,8 +25,8 @@ from config import (
     COMMODITIES
 )
 
-
 from utils.logger import logger
+
 
 class MarketDataService:
 
@@ -44,31 +40,23 @@ class MarketDataService:
 
     def load_market_stocks(self):
 
-
         try:
+
             logger.info(
-
                 "Loading European market file"
-
             )
 
-            df = pd.read_csv(
+            df = pd.read_csv(MARKET_FILE)
 
-                MARKET_FILE
-
-            )
             return df
 
-
         except Exception as ex:
+
             logger.error(
-
                 "Market file loading failed : %s",
-
                 ex
-
             )
-            
+
             return pd.DataFrame()
 
     ##########################################################################
@@ -77,62 +65,44 @@ class MarketDataService:
 
     def get_market_indices(self):
 
-
         output = {}
 
         logger.info(
-
             "Fetching market indices"
-
         )
 
         for name, symbol in MARKET_INDICES.items():
 
-
             try:
-                quote = self.yahoo.get_quote(
 
-                    symbol
+                quote = self.yahoo.get_quote(symbol)
 
-                )
+                print("QUOTE =", quote)
 
                 output[name] = {
 
-
                     "symbol": symbol,
 
+                    "price": quote.get(
+                        "current_price",
+                        0
+                    ),
 
-                    "price":
-
-                        quote.get(
-
-                            "regularMarketPrice",
-
-                            0
-
-                        ),
-
-
-                    "change":
-
-                        quote.get(
-
-                            "regularMarketChangePercent",
-
-                            0
-
-                        )
+                    "change": quote.get(
+                        "change_percent",
+                        0
+                    )
 
                 }
 
             except Exception as ex:
-            
+
                 logger.warning(
                     "Index fetch failed %s : %s",
                     name,
                     ex
-
                 )
+
                 output[name] = {}
 
         return output
@@ -143,60 +113,58 @@ class MarketDataService:
 
     def get_commodities(self):
 
-
         output = {}
 
         logger.info(
-
             "Fetching commodities"
-
         )
 
         for name, symbol in COMMODITIES.items():
+
             try:
-                quote = self.yahoo.get_quote(
 
-                    symbol
+                quote = self.yahoo.get_quote(symbol)
 
+                current_price = quote.get(
+                    "current_price",
+                    0
                 )
+
+                change = quote.get(
+                    "change_percent",
+                    0
+                )
+
+                if change > 0:
+                    trend = "UP"
+                elif change < 0:
+                    trend = "DOWN"
+                else:
+                    trend = "NEUTRAL"
 
                 output[name] = {
 
                     "symbol": symbol,
 
-                    "price":
+                    "price": current_price,
 
-                        quote.get(
+                    "change": change,
 
-                            "regularMarketPrice",
-
-                            0
-
-                        ),
-
-                    "change":
-
-                        quote.get(
-
-                            "regularMarketChangePercent",
-
-                            0
-
-                        )
+                    "trend": trend
 
                 }
 
             except Exception as ex:
-                logger.warning(
 
+                logger.warning(
                     "Commodity fetch failed %s : %s",
                     name,
                     ex
                 )
-                
-                output[name] = {}
-        return output
 
+                output[name] = {}
+
+        return output
 
     ##########################################################################
     # Complete Market Context
@@ -205,10 +173,9 @@ class MarketDataService:
     def get_market_context(self):
 
         return {
-            "indices":
-                self.get_market_indices(),
 
-            "commodities":
-                self.get_commodities()
+            "indices": self.get_market_indices(),
+
+            "commodities": self.get_commodities()
 
         }

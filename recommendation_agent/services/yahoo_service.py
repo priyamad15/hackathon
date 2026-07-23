@@ -14,9 +14,7 @@ Features
 - In-memory cache
 - Automatic retry
 - Fast execution
-
 ==============================================================================
-
 """
 
 import time
@@ -86,6 +84,9 @@ class YahooService:
 
             "country": "Unknown",
 
+            # Asset Category
+            "asset": "Unknown",
+
             "sector": "Unknown",
 
             "industry": "Unknown",
@@ -117,7 +118,7 @@ class YahooService:
 
         time.sleep(RETRY_DELAY)
 
-        ##########################################################################
+            ##########################################################################
     # Historical Price Data
     ##########################################################################
 
@@ -163,10 +164,12 @@ class YahooService:
                 )
 
                 if history is None:
+
                     logger.warning(
                         "No history returned : %s",
                         symbol
                     )
+
                     return None
 
                 ##################################################################
@@ -179,6 +182,7 @@ class YahooService:
 
                     # Keep only this symbol if multiple exist
                     if "symbol" in history.columns:
+
                         history = history[
                             history["symbol"] == symbol
                         ]
@@ -188,10 +192,12 @@ class YahooService:
                     ).reset_index(drop=True)
 
                     if history.empty:
+
                         logger.warning(
                             "Empty history : %s",
                             symbol
                         )
+
                         return None
 
                     self.history_cache[symbol] = history
@@ -208,7 +214,8 @@ class YahooService:
             except Exception as ex:
 
                 logger.warning(
-                    "History download failed %s (Attempt %s/%s): %s",
+                    "History download failed %s "
+                    "(Attempt %s/%s): %s",
                     symbol,
                     attempt + 1,
                     MAX_RETRIES,
@@ -228,29 +235,17 @@ class YahooService:
 
         return None
     
-        ##########################################################################
+    ##########################################################################
     # Company Information
     ##########################################################################
 
     def get_company_information(
         self,
         symbol: str
-    ) -> Dict:
+) -> Dict:
+        
         """
         Returns company metadata.
-
-        Output example:
-
-        {
-            company_name
-            country
-            sector
-            industry
-            description
-            exchange
-            currency
-            current_price
-        }
         """
 
         ######################################################################
@@ -274,27 +269,29 @@ class YahooService:
                 ticker = self._create_ticker(symbol)
 
                 ##################################################################
-                # yahooquery endpoints
+                # Yahoo endpoints
                 ##################################################################
 
                 price = ticker.price
                 quote_type = ticker.quote_type
                 asset_profile = ticker.asset_profile
 
-                ##############################################################
+                ##################################################################
                 # Price Information
-                ##############################################################
+                ##################################################################
 
                 if isinstance(price, dict):
 
                     p = price.get(symbol, {})
 
                     if not isinstance(p, dict):
+
                         logger.warning(
                             "Unexpected price response for %s : %s",
                             symbol,
                             p
                         )
+
                         p = {}
 
                     result["company_name"] = (
@@ -303,32 +300,37 @@ class YahooService:
                         or symbol
                     )
 
-                    result["exchange"] = (
-                        p.get("exchangeName", "")
+                    result["exchange"] = p.get(
+                        "exchangeName",
+                        ""
                     )
 
-                    result["currency"] = (
-                        p.get("currency", "")
+                    result["currency"] = p.get(
+                        "currency",
+                        ""
                     )
 
-                    result["current_price"] = (
-                        p.get("regularMarketPrice", 0.0)
+                    result["current_price"] = p.get(
+                        "regularMarketPrice",
+                        0.0
                     )
 
-                ##############################################################
+                ##################################################################
                 # Quote Type
-                ##############################################################
+                ##################################################################
 
                 if isinstance(quote_type, dict):
 
                     qt = quote_type.get(symbol, {})
 
                     if not isinstance(qt, dict):
+
                         logger.warning(
                             "Unexpected quote_type response for %s : %s",
                             symbol,
                             qt
                         )
+
                         qt = {}
 
                     result["company_name"] = (
@@ -337,46 +339,103 @@ class YahooService:
                         or result["company_name"]
                     )
 
-                ##############################################################
-                # Asset Profile
-                ##############################################################
+                    ##################################################################
+                    # Financial Asset Class
+                    ##################################################################
 
-                if isinstance(asset_profile, dict):
-
-                    profile = asset_profile.get(symbol, {})
-
-                    if not isinstance(profile, dict):
-                        logger.warning(
-                            "Unexpected asset_profile response for %s : %s",
-                            symbol,
-                            profile
-                        )
-                        profile = {}
-
-                    result["country"] = profile.get(
-                        "country",
-                        "Unknown"
+                    asset = (
+                        qt.get("quoteType")
+                        or qt.get("instrumentType")
+                        or "Unknown"
                     )
 
-                    result["sector"] = profile.get(
-                        "sector",
-                        "Unknown"
-                    )
+                    asset = str(asset).upper()
 
-                    result["industry"] = profile.get(
-                        "industry",
-                        "Unknown"
-                    )
+                    if asset == "EQUITY":
 
-                    result["description"] = (
-                        profile.get(
-                            "longBusinessSummary",
-                            ""
-                        )
-                    )
+                        result["asset"] = "Equity"
+
+                    elif asset == "FUTURE":
+
+                        result["asset"] = "Commodity Future"
+
+                    elif asset == "ETF":
+
+                        result["asset"] = "ETF"
+
+                    elif asset == "INDEX":
+
+                        result["asset"] = "Index"
+
+                    elif asset == "CURRENCY":
+
+                        result["asset"] = "Currency"
+
+                    elif asset == "CRYPTOCURRENCY":
+
+                        result["asset"] = "Cryptocurrency"
+
+                    else:
+
+                        result["asset"] = asset.title()
 
                 ##################################################################
-                # Friendly fallback if description missing
+                # Asset Profile
+                ##################################################################
+
+                profile = {}
+
+                if isinstance(asset_profile, dict):
+                    profile = asset_profile.get(symbol, {})
+
+                if not isinstance(profile, dict):
+                    profile = {}
+
+                country = profile.get("country")
+                sector = profile.get("sector")
+                industry = profile.get("industry")
+                description = profile.get("longBusinessSummary", "")
+
+                # Asset classes that are global
+                GLOBAL_ASSETS = {
+                    "ETF",
+                    "Index",
+                    "Currency",
+                    "Cryptocurrency",
+                    "Commodity Future"
+                }
+
+                if result["asset"] in GLOBAL_ASSETS:
+                    result["country"] = "Global"
+                else:
+                    result["country"] = country or "Unknown"
+
+                result["sector"] = sector or "Unknown"
+                result["industry"] = industry or "Unknown"
+                result["description"] = description
+
+                if result["asset"] == "ETF":
+                    result["sector"] = result["sector"] if result["sector"] != "Unknown" else "Exchange Traded Fund"
+                    result["industry"] = result["industry"] if result["industry"] != "Unknown" else "ETF"
+
+                elif result["asset"] == "Index":
+                    result["sector"] = "Market Index"
+                    result["industry"] = "Stock Market Index"
+
+                elif result["asset"] == "Currency":
+                    result["sector"] = "Foreign Exchange"
+                    result["industry"] = "Currency Pair"
+
+                elif result["asset"] == "Cryptocurrency":
+                    result["sector"] = "Digital Assets"
+                    result["industry"] = "Cryptocurrency"
+
+                elif result["asset"] == "Commodity Future":
+                    result["sector"] = "Commodities"
+                    result["industry"] = "Commodity Futures"
+
+                ##################################################################
+                # Friendly fallback
                 ##################################################################
 
                 if not result["description"]:
@@ -396,29 +455,23 @@ class YahooService:
 
             except Exception as ex:
 
-                logger.warning(
-                    "Company information failed %s "
-                    "(Attempt %s/%s): %s",
+                logger.error(
+                    "Company information failed %s : %s",
                     symbol,
-                    attempt + 1,
-                    MAX_RETRIES,
                     ex
                 )
 
                 self._retry_sleep(attempt)
 
-        ######################################################################
-        # Failed
-        ######################################################################
-
-        logger.warning(
-            "Using default company information : %s",
+        logger.error(
+            "Unable to fetch company information : %s",
             symbol
         )
 
-        return result
-    
-        ##########################################################################
+        return self._default_company(symbol)
+            
+
+    ##########################################################################
     # Latest Quote
     ##########################################################################
 
@@ -428,17 +481,6 @@ class YahooService:
     ) -> Dict:
         """
         Returns latest market quote.
-
-        Example:
-            {
-                current_price
-                previous_close
-                open
-                day_high
-                day_low
-                volume
-                market_cap
-            }
         """
 
         try:
@@ -447,54 +489,67 @@ class YahooService:
 
             price = ticker.price
 
+            # Uncomment only for debugging
+            # print("=" * 80)
+            # print("SYMBOL :", symbol)
+            # print("PRICE :", price)
+            # print("=" * 80)
+
             if not isinstance(price, dict):
                 return {}
 
             quote = price.get(symbol, {})
 
+            current_price = quote.get(
+                "regularMarketPrice",
+                0.0
+            )
+
+            previous_close = quote.get(
+                "regularMarketPreviousClose",
+                0.0
+            )
+
+            change_percent = 0.0
+
+            if previous_close:
+                change_percent = (
+                    (current_price - previous_close)
+                    / previous_close
+                ) * 100
+
             return {
 
-                "current_price":
-                    quote.get(
-                        "regularMarketPrice",
-                        0.0
-                    ),
+                "current_price": current_price,
 
-                "previous_close":
-                    quote.get(
-                        "regularMarketPreviousClose",
-                        0.0
-                    ),
+                "previous_close": previous_close,
 
-                "open":
-                    quote.get(
-                        "regularMarketOpen",
-                        0.0
-                    ),
+                "change_percent": change_percent,
 
-                "day_high":
-                    quote.get(
-                        "regularMarketDayHigh",
-                        0.0
-                    ),
+                "open": quote.get(
+                    "regularMarketOpen",
+                    0.0
+                ),
 
-                "day_low":
-                    quote.get(
-                        "regularMarketDayLow",
-                        0.0
-                    ),
+                "day_high": quote.get(
+                    "regularMarketDayHigh",
+                    0.0
+                ),
 
-                "volume":
-                    quote.get(
-                        "regularMarketVolume",
-                        0
-                    ),
+                "day_low": quote.get(
+                    "regularMarketDayLow",
+                    0.0
+                ),
 
-                "market_cap":
-                    quote.get(
-                        "marketCap",
-                        0
-                    )
+                "volume": quote.get(
+                    "regularMarketVolume",
+                    0
+                ),
+
+                "market_cap": quote.get(
+                    "marketCap",
+                    0
+                )
 
             }
 
@@ -507,7 +562,7 @@ class YahooService:
             )
 
             return {}
-
+        
     ##########################################################################
     # Clear Cache
     ##########################################################################

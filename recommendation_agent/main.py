@@ -1,28 +1,3 @@
-"""
-==============================================================================
-main.py
-
-European Stock Recommendation Agent
-
-Data Sources
-------------
-1. Yahoo Finance (yahooquery)
-2. DuckDuckGo News
-
-No LLM
-No API Keys
-
-Outputs
--------
-output/
-    recommendations_{timestamp}.json
-    recommendations_{timestamp}.csv
-    H2 database tables recommendations_{timestamp}
-
-==============================================================================
-
-"""
-
 import traceback
 
 from concurrent.futures import ThreadPoolExecutor
@@ -33,8 +8,12 @@ from database.db_loader import DatabaseLoader
 from config import (
 
     MAX_WORKERS,
+    MAX_NEWS_STOCKS,
 
-    MAX_NEWS_STOCKS
+    ETF_SYMBOLS,
+    INDEX_SYMBOLS,
+    CURRENCY_SYMBOLS,
+    CRYPTO_SYMBOLS
 
 )
 
@@ -130,16 +109,30 @@ def main():
 
         symbols = (
 
-            market_df["symbol"]
+                    market_df["symbol"]
 
-            .dropna()
+                .dropna()
 
-            .unique()
+                .unique()
 
-            .tolist()
+                .tolist()
 
-        )
+            )
 
+        ##############################################################
+        # Add Other Asset Classes
+        ##############################################################
+
+        symbols.extend(ETF_SYMBOLS)
+
+        symbols.extend(INDEX_SYMBOLS)
+
+        symbols.extend(CURRENCY_SYMBOLS)
+
+        symbols.extend(CRYPTO_SYMBOLS)
+
+        symbols = list(dict.fromkeys(symbols))
+        
         logger.info(
 
             "Stocks Loaded : %s",
@@ -353,7 +346,6 @@ def main():
 
         )
 
-      
         initial_results = []
 
         for symbol in symbols:
@@ -533,9 +525,30 @@ def main():
                             "company_name"
                         ) or symbol,
 
-                    "country":
+                    "country": (
+                        "Global"
+                        if (
+                            company_info.get("asset") in (
+                                "ETF",
+                                "Index",
+                                "Currency",
+                                "Cryptocurrency",
+                                "Commodity Future"
+                            )
+                            and company_info.get("country") in (
+                                None,
+                                "",
+                                "Unknown"
+                            )
+                        )
+                        else (
+                            company_info.get("country")
+                            or "Unknown"
+                        )
+                    ),
+                    "asset":
                         company_info.get(
-                            "country"
+                            "asset"
                         ) or "Unknown",
 
                     "sector":
@@ -597,6 +610,114 @@ def main():
 
             )
 
+                    ######################################################################
+        # Add Commodity Recommendations
+        ######################################################################
+
+        commodity_symbol_map = {
+
+            "Gold": "GC=F",
+            "Silver": "SI=F",
+            "Crude Oil": "CL=F",
+            "Natural Gas": "NG=F",
+            "Copper": "HG=F",
+            "Platinum": "PL=F",
+            "Palladium": "PA=F"
+
+        }
+
+        commodity_industry = {
+
+            "Gold": "Precious Metals",
+            "Silver": "Precious Metals",
+            "Crude Oil": "Energy",
+            "Natural Gas": "Energy",
+            "Copper": "Industrial Metals",
+            "Platinum": "Precious Metals",
+            "Palladium": "Precious Metals"
+
+        }
+
+        for commodity in commodity_recommendations:
+
+            name = commodity.get("commodity", "Commodity")
+
+            recommendation = commodity.get(
+                "recommendation",
+                "BUY"
+            )
+
+            score = 80 if recommendation == "BUY" else 40
+
+            risk = "Medium" if recommendation == "BUY" else "High"
+
+            recommendations.append(
+
+                {
+
+                    "symbol":
+                        commodity_symbol_map.get(
+                            name,
+                            name.upper()
+                        ),
+
+                    "company_name":
+                        name,
+
+                    "country":
+                        "Global",
+
+                    "asset": (
+                        name
+                        if name in ("Gold", "Silver")
+                        else "Commodity"
+                    ),
+
+                    "sector":
+                        "Commodities",
+
+                    "industry":
+                        commodity_industry.get(
+                            name,
+                            "Commodities"
+                        ),
+
+                    "description":
+                        f"{name} Commodity",
+
+                    "price":
+                        round(
+                            float(
+                                commodity.get(
+                                    "price",
+                                    0
+                                ) or 0
+                            ),
+                            2
+                        ),
+
+                    "recommendation":
+                        recommendation,
+
+                    "risk":
+                        risk,
+
+                    "score":
+                        score,
+
+                    "reason":
+                        commodity.get(
+                            "reason",
+                            ""
+                        ),
+
+                    "latest_news":
+                        []
+
+                }
+
+            )
+
         ######################################################################
         # Final Sort
         ######################################################################
@@ -613,7 +734,18 @@ def main():
 
         ######################################################################
         # Country Summary
+        # (Stocks only)
         ######################################################################
+
+        stock_recommendations = [
+
+            x
+
+            for x in recommendations
+
+            if x.get("asset") != "Commodity"
+
+        ]
 
         country_summary = {}
 
@@ -623,7 +755,7 @@ def main():
 
                 x["country"]
 
-                for x in recommendations
+                for x in stock_recommendations
 
             }
 
@@ -633,7 +765,7 @@ def main():
 
                 x
 
-                for x in recommendations
+                for x in stock_recommendations
 
                 if x["country"] == country
 
@@ -710,12 +842,19 @@ def main():
         loader = None
 
         try:
+
             if DATABASE_ENABLED:
+
                 loader = DatabaseLoader()
-                loader.load_csv(report_generator.csv_output_file)
+
+                loader.load_csv(
+                    report_generator.csv_output_file
+                )
 
         finally:
+
             if loader is not None:
+
                 loader.close()
 
         ######################################################################
@@ -725,41 +864,27 @@ def main():
         logger.info("=" * 80)
 
         logger.info(
-
             "Market Scan Completed Successfully"
-
         )
 
         logger.info(
-
             "Stocks Analysed : %s",
-
             len(symbols)
-
         )
 
         logger.info(
-
             "Recommendations : %s",
-
             len(recommendations)
-
         )
 
         logger.info(
-
             "Countries : %s",
-
             len(country_summary)
-
         )
 
         logger.info(
-
             "Commodity Recommendations : %s",
-
             len(commodity_recommendations)
-
         )
 
         logger.info("=" * 80)
@@ -767,11 +892,8 @@ def main():
     except Exception as ex:
 
         logger.exception(
-
             "Application failed : %s",
-
             ex
-
         )
 
         traceback.print_exc()

@@ -144,6 +144,11 @@ class ReportGenerator:
                                 "country"
                             ),
 
+                        "Asset":
+                            stock.get(
+                                "asset"
+                            ),
+
                         "Sector":
                             stock.get(
                                 "sector"

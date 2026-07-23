@@ -143,7 +143,7 @@ class RecommendationEngine:
             0
         )
     
-        ##########################################################################
+    ##########################################################################
     # Market Score
     ##########################################################################
 
@@ -192,7 +192,7 @@ class RecommendationEngine:
 
         return score
 
-    ##########################################################################
+        ##########################################################################
     # Commodity Score
     ##########################################################################
 
@@ -211,12 +211,12 @@ class RecommendationEngine:
 
         score = 0
 
-        ##############################################################
+        ######################################################################
         # Gold
-        ##############################################################
+        ######################################################################
 
         gold = commodities.get(
-            "Gold",
+            "GOLD",
             {}
         )
 
@@ -225,34 +225,52 @@ class RecommendationEngine:
             if gold.get("trend") == "UP":
                 score += 2
 
-        ##############################################################
-        # Oil
-        ##############################################################
+        ######################################################################
+        # Oil (WTI / Brent)
+        ######################################################################
 
-        oil = commodities.get(
-            "Crude Oil",
-            {}
+        oil = (
+            commodities.get("WTI_OIL")
+            or commodities.get("BRENT_OIL")
+            or {}
         )
 
         if sector == "energy":
 
             if oil.get("trend") == "UP":
                 score += 5
-            else:
+            elif oil.get("trend") == "DOWN":
                 score -= 3
 
-        ##############################################################
+        ######################################################################
         # Silver
-        ##############################################################
+        ######################################################################
 
         silver = commodities.get(
-            "Silver",
+            "SILVER",
             {}
         )
 
         if sector == "basic materials":
 
             if silver.get("trend") == "UP":
+                score += 2
+
+        ######################################################################
+        # Copper
+        ######################################################################
+
+        copper = commodities.get(
+            "COPPER",
+            {}
+        )
+
+        if sector in (
+            "industrials",
+            "basic materials"
+        ):
+
+            if copper.get("trend") == "UP":
                 score += 2
 
         return score
@@ -461,8 +479,8 @@ class RecommendationEngine:
         market_context
     ):
         """
-        Build simple BUY/SELL recommendations for commodities
-        based on their current trend.
+        Build BUY / SELL recommendations for commodities
+        based on trend and price movement.
         """
 
         recommendations = []
@@ -472,67 +490,96 @@ class RecommendationEngine:
             {}
         )
 
-        for commodity, values in commodities.items():
+        commodity_names = {
+
+            "GOLD": "Gold",
+
+            "SILVER": "Silver",
+
+            "WTI_OIL": "Crude Oil",
+
+            "BRENT_OIL": "Brent Oil",
+
+            "COPPER": "Copper",
+
+            "NATURAL_GAS": "Natural Gas"
+
+        }
+
+        for key, values in commodities.items():
 
             trend = str(
                 values.get(
                     "trend",
-                    ""
+                    "NEUTRAL"
                 )
             ).upper()
 
-            price = values.get(
-                "price",
-                0
+            price = float(
+                values.get(
+                    "price",
+                    0
+                ) or 0
             )
 
-            recommendation = "BUY"
+            recommendation = "HOLD"
 
-            reason = (
-                f"{commodity} is showing positive momentum."
-            )
+            reason = "Commodity is trading sideways."
 
             ##############################################################
-            # Downtrend
+            # Up Trend
             ##############################################################
 
-            if trend in ("DOWN", "BEARISH", "NEGATIVE"):
+            if trend in ("UP", "BULLISH", "POSITIVE"):
+
+                recommendation = "BUY"
+
+                if key == "GOLD":
+
+                    reason = (
+                        "Gold is strengthening and continues to "
+                        "act as a safe-haven asset."
+                    )
+
+                elif key == "SILVER":
+
+                    reason = (
+                        "Silver demand remains healthy with "
+                        "positive momentum."
+                    )
+
+                elif key in ("WTI_OIL", "BRENT_OIL"):
+
+                    reason = (
+                        "Oil prices are improving which may "
+                        "benefit energy markets."
+                    )
+
+                elif key == "COPPER":
+
+                    reason = (
+                        "Copper prices indicate healthy "
+                        "industrial demand."
+                    )
+
+                elif key == "NATURAL_GAS":
+
+                    reason = (
+                        "Natural Gas prices are strengthening."
+                    )
+
+            ##############################################################
+            # Down Trend
+            ##############################################################
+
+            elif trend in ("DOWN", "BEARISH", "NEGATIVE"):
 
                 recommendation = "SELL"
 
                 reason = (
-                    f"{commodity} has been weakening recently. "
-                    "Waiting for trend improvement may reduce risk."
+                    "Commodity is weakening and downside risk "
+                    "appears higher."
                 )
-
-            ##############################################################
-            # Uptrend
-            ##############################################################
-
-            elif trend in ("UP", "BULLISH", "POSITIVE"):
-
-                recommendation = "BUY"
-
-                if commodity.lower() == "gold":
-
-                    reason = (
-                        "Gold is strengthening and is often used as a "
-                        "defensive investment during uncertain markets."
-                    )
-
-                elif commodity.lower() == "silver":
-
-                    reason = (
-                        "Silver demand appears healthy and current "
-                        "momentum remains positive."
-                    )
-
-                elif "oil" in commodity.lower():
-
-                    reason = (
-                        "Oil prices are improving, which may benefit "
-                        "energy-related investments."
-                    )
 
             ##############################################################
 
@@ -540,13 +587,32 @@ class RecommendationEngine:
 
                 {
 
-                    "commodity": commodity,
+                    "commodity":
+                        commodity_names.get(
+                            key,
+                            key
+                        ),
 
-                    "price": price,
+                    "symbol":
+                        values.get(
+                            "symbol",
+                            key
+                        ),
 
-                    "recommendation": recommendation,
+                    "price":
+                        round(
+                            price,
+                            2
+                        ),
 
-                    "reason": reason
+                    "trend":
+                        trend,
+
+                    "recommendation":
+                        recommendation,
+
+                    "reason":
+                        reason
 
                 }
 
